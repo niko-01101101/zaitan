@@ -1,22 +1,23 @@
 #include "../src/Desktop.hpp"
 #import <Carbon/Carbon.h>
-#include <HIToolbox/Events.h>
 
 extern uint32_t getFrontmostWindowID();
 extern void applyFrame(uint32_t windowID, WMRect frame);
 
 #ifdef DEBUG
-extern void showDebugOverlay(const std::vector<WindowPlacement> &placements);
+extern void showDebugOverlay(const std::vector<WindowPlacement> &placements,
+                             uint32_t selectedID);
 #endif
 
 static Desktop *sDesktop = nullptr;
+static uint32_t sSelectedID = 0;
 
 static void applyLayout() {
   auto layout = sDesktop->getLayout();
   for (auto &p : layout)
     applyFrame(p.windowID, p.frame);
 #ifdef DEBUG
-  showDebugOverlay(layout);
+  showDebugOverlay(layout, sSelectedID);
 #endif
 }
 
@@ -59,19 +60,69 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
   case kHotkeyAssign:
     NSLog(@"[zaitan] assign  pid=%u", focused);
     sDesktop->assignWindow(focused);
+    sSelectedID = focused;
     break;
   case kHotkeySplitH:
-    NSLog(@"[zaitan] splitH  pid=%u", focused);
-    sDesktop->splitHorizontally(focused);
+    NSLog(@"[zaitan] splitH  pid=%u", sSelectedID);
+    sDesktop->splitHorizontally(sSelectedID ? sSelectedID : focused);
     break;
   case kHotkeySplitV:
-    NSLog(@"[zaitan] splitV  pid=%u", focused);
-    sDesktop->splitVertically(focused);
+    NSLog(@"[zaitan] splitV  pid=%u", sSelectedID);
+    sDesktop->splitVertically(sSelectedID ? sSelectedID : focused);
     break;
   case kHotkeyRemove:
-    NSLog(@"[zaitan] remove  pid=%u", focused);
-    sDesktop->removeWindow(focused);
+    NSLog(@"[zaitan] remove  pid=%u", sSelectedID);
+    sDesktop->removeWindow(sSelectedID ? sSelectedID : focused);
+    sSelectedID = 0;
     break;
+  case kHotkeyMoveWinL:
+    NSLog(@"[zaitan] move window left  pid=%u", sSelectedID);
+    sDesktop->moveWindowHorizontally(sSelectedID ? sSelectedID : focused,
+                                     HorizontalDirection::Left);
+    break;
+  case kHotkeyMoveWinR:
+    NSLog(@"[zaitan] move window right  pid=%u", sSelectedID);
+    sDesktop->moveWindowHorizontally(sSelectedID ? sSelectedID : focused,
+                                     HorizontalDirection::Right);
+    break;
+  case kHotkeyMoveWinU:
+    NSLog(@"[zaitan] move window up  pid=%u", sSelectedID);
+    sDesktop->moveWindowVertically(sSelectedID ? sSelectedID : focused,
+                                   VerticalDirection::Up);
+    break;
+  case kHotkeyMoveWinD:
+    NSLog(@"[zaitan] move window down  pid=%u", sSelectedID);
+    sDesktop->moveWindowVertically(sSelectedID ? sSelectedID : focused,
+                                   VerticalDirection::Down);
+    break;
+  case kHotkeyMoveL: {
+    uint32_t next = sDesktop->moveHorizontally(sSelectedID ? sSelectedID : focused,
+                                               HorizontalDirection::Left);
+    if (next) sSelectedID = next;
+    NSLog(@"[zaitan] select left  pid=%u next=>%u", sSelectedID, next);
+    break;
+  }
+  case kHotkeyMoveR: {
+    uint32_t next = sDesktop->moveHorizontally(sSelectedID ? sSelectedID : focused,
+                                               HorizontalDirection::Right);
+    if (next) sSelectedID = next;
+    NSLog(@"[zaitan] select right  pid=%u", sSelectedID);
+    break;
+  }
+  case kHotkeyMoveU: {
+    uint32_t next = sDesktop->moveVertically(sSelectedID ? sSelectedID : focused,
+                                             VerticalDirection::Up);
+    if (next) sSelectedID = next;
+    NSLog(@"[zaitan] select up  pid=%u", sSelectedID);
+    break;
+  }
+  case kHotkeyMoveD: {
+    uint32_t next = sDesktop->moveVertically(sSelectedID ? sSelectedID : focused,
+                                             VerticalDirection::Down);
+    if (next) sSelectedID = next;
+    NSLog(@"[zaitan] select down  pid=%u", sSelectedID);
+    break;
+  }
   }
 
   applyLayout();
@@ -85,13 +136,13 @@ void RegisterHotkeys(Desktop &desktop) {
   InstallApplicationEventHandler(&HotkeyHandler, 1, &hotkeyType, NULL, NULL);
 
   // Cmd+Shift+Return  — assign focused window to first empty pane
-  // Cmd+Shift+Z   — split focused pane left/right
-  // Cmd+Shift+X    — split focused pane top/bottom
-  // Cmd+Shift+Delete  — remove focused window from layout
-  // Cmd+Shift+Left  — move window left
-  // Cmd+Shift+Right   — move window right
-  // Cmd+Shift+Down    — move window down
-  // Cmd+Shift+Up  — move window up
+  // Cmd+Shift+Z   — split selected pane left/right
+  // Cmd+Shift+X    — split selected pane top/bottom
+  // Cmd+Shift+Delete  — remove selected window from layout
+  // Cmd+Shift+Left  — move selected window left
+  // Cmd+Shift+Right   — move selected window right
+  // Cmd+Shift+Down    — move selected window down
+  // Cmd+Shift+Up  — move selected window up
   // Cmd+Left  — select pane to the left
   // Cmd+Right   — select pane to the right
   // Cmd+Down    — select pane down

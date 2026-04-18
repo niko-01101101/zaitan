@@ -39,7 +39,9 @@
 static NSWindow *gOverlayWindow = nil;
 static DebugOverlayView *gOverlayView = nil;
 
-void showDebugOverlay(const std::vector<WindowPlacement> &placements, uint32_t focusedID) {
+void showDebugOverlay(const std::vector<WindowPlacement> &placements,
+                      uint32_t selectedID) {
+    uint32_t focusedID = selectedID;
     if (!gOverlayWindow) {
         NSScreen *screen = [NSScreen mainScreen];
         gOverlayWindow = [[NSWindow alloc]
