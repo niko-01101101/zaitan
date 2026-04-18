@@ -10,6 +10,7 @@ set(SOURCES
     app/main.mm
     app/AppDelegate.mm
     platform/WindowController.mm
+    platform/DebugOverlay.mm
     input/Hotkeys.mm
     src/Desktop.cpp
 )
@@ -21,6 +22,8 @@ set_target_properties(Zaitan PROPERTIES
 )
 
 target_include_directories(Zaitan PRIVATE src)
+
+target_compile_definitions(Zaitan PRIVATE $<$<CONFIG:Debug>:DEBUG>)
 
 target_link_libraries(Zaitan
     "-framework AppKit"

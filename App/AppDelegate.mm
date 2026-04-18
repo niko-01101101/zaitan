@@ -2,7 +2,7 @@
 #import <ApplicationServices/ApplicationServices.h>
 #include "../src/Desktop.hpp"
 
-extern WMRect getScreenFrame();
+extern WMRect getScreenFrame(int display);
 extern void RegisterHotkeys(Desktop &desktop);
 extern void UnregisterHotkeys();
 
@@ -16,7 +16,7 @@ static Desktop *gDesktop = nullptr;
         AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
     }
 
-    gDesktop = new Desktop(getScreenFrame());
+    gDesktop = new Desktop(getScreenFrame(0));
     RegisterHotkeys(*gDesktop);
 }
 

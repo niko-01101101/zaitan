@@ -153,6 +153,14 @@ input/Hotkeys.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o
 .PHONY : input/Hotkeys.mm.o
 
+platform/DebugOverlay.o: platform/DebugOverlay.mm.o
+.PHONY : platform/DebugOverlay.o
+
+# target to build an object file
+platform/DebugOverlay.mm.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/platform/DebugOverlay.mm.o
+.PHONY : platform/DebugOverlay.mm.o
+
 platform/WindowController.o: platform/WindowController.mm.o
 .PHONY : platform/WindowController.o
 
@@ -197,6 +205,7 @@ help:
 	@echo "... app/AppDelegate.o"
 	@echo "... app/main.o"
 	@echo "... input/Hotkeys.o"
+	@echo "... platform/DebugOverlay.o"
 	@echo "... platform/WindowController.o"
 	@echo "... src/Desktop.o"
 	@echo "... src/Desktop.i"

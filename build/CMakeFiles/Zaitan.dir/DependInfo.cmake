@@ -12,6 +12,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/niko.01101101/Documents/GitHub/zaitan/app/AppDelegate.mm" "CMakeFiles/Zaitan.dir/app/AppDelegate.mm.o" "gcc" "CMakeFiles/Zaitan.dir/app/AppDelegate.mm.o.d"
   "/Users/niko.01101101/Documents/GitHub/zaitan/app/main.mm" "CMakeFiles/Zaitan.dir/app/main.mm.o" "gcc" "CMakeFiles/Zaitan.dir/app/main.mm.o.d"
   "/Users/niko.01101101/Documents/GitHub/zaitan/input/Hotkeys.mm" "CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o" "gcc" "CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o.d"
+  "/Users/niko.01101101/Documents/GitHub/zaitan/platform/DebugOverlay.mm" "CMakeFiles/Zaitan.dir/platform/DebugOverlay.mm.o" "gcc" "CMakeFiles/Zaitan.dir/platform/DebugOverlay.mm.o.d"
   "/Users/niko.01101101/Documents/GitHub/zaitan/platform/WindowController.mm" "CMakeFiles/Zaitan.dir/platform/WindowController.mm.o" "gcc" "CMakeFiles/Zaitan.dir/platform/WindowController.mm.o.d"
   )
 
