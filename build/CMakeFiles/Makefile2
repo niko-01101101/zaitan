@@ -63,11 +63,11 @@ CMAKE_BINARY_DIR = /Users/niko.01101101/Documents/GitHub/zaitan/build
 # Directory level rules for the build root directory
 
 # The main recursive "all" target.
-all: CMakeFiles/WindowManager.dir/all
+all: CMakeFiles/Zaitan.dir/all
 .PHONY : all
 
 # The main recursive "codegen" target.
-codegen: CMakeFiles/WindowManager.dir/codegen
+codegen: CMakeFiles/Zaitan.dir/codegen
 .PHONY : codegen
 
 # The main recursive "preinstall" target.
@@ -75,40 +75,40 @@ preinstall:
 .PHONY : preinstall
 
 # The main recursive "clean" target.
-clean: CMakeFiles/WindowManager.dir/clean
+clean: CMakeFiles/Zaitan.dir/clean
 .PHONY : clean
 
 #=============================================================================
-# Target rules for target CMakeFiles/WindowManager.dir
+# Target rules for target CMakeFiles/Zaitan.dir
 
 # All Build rule for target.
-CMakeFiles/WindowManager.dir/all:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/WindowManager.dir/build.make CMakeFiles/WindowManager.dir/depend
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/WindowManager.dir/build.make CMakeFiles/WindowManager.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=1,2,3,4,5 "Built target WindowManager"
-.PHONY : CMakeFiles/WindowManager.dir/all
+CMakeFiles/Zaitan.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=1,2,3,4,5,6 "Built target Zaitan"
+.PHONY : CMakeFiles/Zaitan.dir/all
 
 # Build rule for subdir invocation for target.
-CMakeFiles/WindowManager.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles 5
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/WindowManager.dir/all
+CMakeFiles/Zaitan.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles 6
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/Zaitan.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles 0
-.PHONY : CMakeFiles/WindowManager.dir/rule
+.PHONY : CMakeFiles/Zaitan.dir/rule
 
 # Convenience name for target.
-WindowManager: CMakeFiles/WindowManager.dir/rule
-.PHONY : WindowManager
+Zaitan: CMakeFiles/Zaitan.dir/rule
+.PHONY : Zaitan
 
 # codegen rule for target.
-CMakeFiles/WindowManager.dir/codegen:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/WindowManager.dir/build.make CMakeFiles/WindowManager.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=1,2,3,4,5 "Finished codegen for target WindowManager"
-.PHONY : CMakeFiles/WindowManager.dir/codegen
+CMakeFiles/Zaitan.dir/codegen:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/codegen
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=1,2,3,4,5,6 "Finished codegen for target Zaitan"
+.PHONY : CMakeFiles/Zaitan.dir/codegen
 
 # clean rule for target.
-CMakeFiles/WindowManager.dir/clean:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/WindowManager.dir/build.make CMakeFiles/WindowManager.dir/clean
-.PHONY : CMakeFiles/WindowManager.dir/clean
+CMakeFiles/Zaitan.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/clean
+.PHONY : CMakeFiles/Zaitan.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

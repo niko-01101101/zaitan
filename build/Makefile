@@ -117,49 +117,73 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named WindowManager
+# Target rules for targets named Zaitan
 
 # Build rule for target.
-WindowManager: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 WindowManager
-.PHONY : WindowManager
+Zaitan: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 Zaitan
+.PHONY : Zaitan
 
 # fast build rule for target.
-WindowManager/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/WindowManager.dir/build.make CMakeFiles/WindowManager.dir/build
-.PHONY : WindowManager/fast
+Zaitan/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/build
+.PHONY : Zaitan/fast
 
-App/AppDelegate.o: App/AppDelegate.mm.o
-.PHONY : App/AppDelegate.o
-
-# target to build an object file
-App/AppDelegate.mm.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/WindowManager.dir/build.make CMakeFiles/WindowManager.dir/App/AppDelegate.mm.o
-.PHONY : App/AppDelegate.mm.o
-
-App/main.o: App/main.mm.o
-.PHONY : App/main.o
+app/AppDelegate.o: app/AppDelegate.mm.o
+.PHONY : app/AppDelegate.o
 
 # target to build an object file
-App/main.mm.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/WindowManager.dir/build.make CMakeFiles/WindowManager.dir/App/main.mm.o
-.PHONY : App/main.mm.o
+app/AppDelegate.mm.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/app/AppDelegate.mm.o
+.PHONY : app/AppDelegate.mm.o
 
-Input/Hotkeys.o: Input/Hotkeys.mm.o
-.PHONY : Input/Hotkeys.o
-
-# target to build an object file
-Input/Hotkeys.mm.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/WindowManager.dir/build.make CMakeFiles/WindowManager.dir/Input/Hotkeys.mm.o
-.PHONY : Input/Hotkeys.mm.o
-
-Platform/WindowController.o: Platform/WindowController.mm.o
-.PHONY : Platform/WindowController.o
+app/main.o: app/main.mm.o
+.PHONY : app/main.o
 
 # target to build an object file
-Platform/WindowController.mm.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/WindowManager.dir/build.make CMakeFiles/WindowManager.dir/Platform/WindowController.mm.o
-.PHONY : Platform/WindowController.mm.o
+app/main.mm.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/app/main.mm.o
+.PHONY : app/main.mm.o
+
+input/Hotkeys.o: input/Hotkeys.mm.o
+.PHONY : input/Hotkeys.o
+
+# target to build an object file
+input/Hotkeys.mm.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o
+.PHONY : input/Hotkeys.mm.o
+
+platform/WindowController.o: platform/WindowController.mm.o
+.PHONY : platform/WindowController.o
+
+# target to build an object file
+platform/WindowController.mm.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/platform/WindowController.mm.o
+.PHONY : platform/WindowController.mm.o
+
+src/Desktop.o: src/Desktop.cpp.o
+.PHONY : src/Desktop.o
+
+# target to build an object file
+src/Desktop.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/src/Desktop.cpp.o
+.PHONY : src/Desktop.cpp.o
+
+src/Desktop.i: src/Desktop.cpp.i
+.PHONY : src/Desktop.i
+
+# target to preprocess a source file
+src/Desktop.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/src/Desktop.cpp.i
+.PHONY : src/Desktop.cpp.i
+
+src/Desktop.s: src/Desktop.cpp.s
+.PHONY : src/Desktop.s
+
+# target to generate assembly for a file
+src/Desktop.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/src/Desktop.cpp.s
+.PHONY : src/Desktop.cpp.s
 
 # Help Target
 help:
@@ -169,11 +193,14 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... WindowManager"
-	@echo "... App/AppDelegate.o"
-	@echo "... App/main.o"
-	@echo "... Input/Hotkeys.o"
-	@echo "... Platform/WindowController.o"
+	@echo "... Zaitan"
+	@echo "... app/AppDelegate.o"
+	@echo "... app/main.o"
+	@echo "... input/Hotkeys.o"
+	@echo "... platform/WindowController.o"
+	@echo "... src/Desktop.o"
+	@echo "... src/Desktop.i"
+	@echo "... src/Desktop.s"
 .PHONY : help
 
 

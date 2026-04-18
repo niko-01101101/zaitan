@@ -1,28 +1,35 @@
 cmake_minimum_required(VERSION 3.20)
-project(WindowManager)
+project(Zaitan)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64")
 
-# Enable Objective-C++
 enable_language(OBJCXX)
 
-# Source files
 set(SOURCES
-    App/main.mm
-    App/AppDelegate.mm
-
-    Platform/WindowController.mm
-
-    Input/Hotkeys.mm
+    app/main.mm
+    app/AppDelegate.mm
+    platform/WindowController.mm
+    input/Hotkeys.mm
+    src/Desktop.cpp
 )
 
-# Create macOS app bundle
-add_executable(WindowManager MACOSX_BUNDLE ${SOURCES})
+add_executable(Zaitan MACOSX_BUNDLE ${SOURCES})
 
-# Link required macOS frameworks
-target_link_libraries(WindowManager
+set_target_properties(Zaitan PROPERTIES
+    MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/app/Info.plist
+)
+
+target_include_directories(Zaitan PRIVATE src)
+
+target_link_libraries(Zaitan
     "-framework AppKit"
     "-framework ApplicationServices"
     "-framework Carbon"
+)
+
+# Strip extended attributes then ad-hoc sign
+add_custom_command(TARGET Zaitan POST_BUILD
+    COMMAND xattr -cr $<TARGET_BUNDLE_DIR:Zaitan>
+    COMMAND codesign --force --deep --sign - $<TARGET_BUNDLE_DIR:Zaitan>
 )
