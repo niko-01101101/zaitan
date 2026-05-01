@@ -23,7 +23,10 @@ set_target_properties(Zaitan PROPERTIES
 
 target_include_directories(Zaitan PRIVATE src)
 
-target_compile_definitions(Zaitan PRIVATE $<$<CONFIG:Debug>:DEBUG>)
+option(ZAITAN_DEBUG "Enable debug overlay" OFF)
+if(ZAITAN_DEBUG)
+  target_compile_definitions(Zaitan PRIVATE DEBUG)
+endif()
 
 target_link_libraries(Zaitan
     "-framework AppKit"

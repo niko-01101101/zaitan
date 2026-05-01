@@ -3,7 +3,7 @@
 
 # compile CXX with /usr/bin/c++
 # compile OBJCXX with /usr/bin/c++
-CXX_DEFINES = -DDEBUG
+CXX_DEFINES = 
 
 CXX_INCLUDES = -I/Users/niko.01101101/Documents/GitHub/zaitan/src
 
@@ -13,7 +13,7 @@ CXX_FLAGSarm64 = -g -std=gnu++17 -arch arm64
 
 CXX_FLAGS = -g -std=gnu++17 -arch x86_64 -arch arm64
 
-OBJCXX_DEFINES = -DDEBUG
+OBJCXX_DEFINES = 
 
 OBJCXX_INCLUDES = -I/Users/niko.01101101/Documents/GitHub/zaitan/src
 

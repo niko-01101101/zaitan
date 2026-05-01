@@ -1,8 +1,14 @@
 #include "../src/Desktop.hpp"
+#import <AppKit/AppKit.h>
 #import <Carbon/Carbon.h>
+#include <vector>
 
 extern uint32_t getFrontmostWindowID();
+extern std::vector<uint32_t> getAllWindowIDs();
 extern void applyFrame(uint32_t windowID, WMRect frame);
+extern void closeWindow(uint32_t windowID);
+extern void launchNewInstance(uint32_t windowID);
+extern void focusWindow(uint32_t windowID);
 
 #ifdef DEBUG
 extern void showDebugOverlay(const std::vector<WindowPlacement> &placements,
@@ -11,6 +17,8 @@ extern void showDebugOverlay(const std::vector<WindowPlacement> &placements,
 
 static Desktop *sDesktop = nullptr;
 static uint32_t sSelectedID = 0;
+static id gLaunchObserver = nil;
+static id gActivateObserver = nil;
 
 static void applyLayout() {
   auto layout = sDesktop->getLayout();
@@ -62,19 +70,29 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
     sDesktop->assignWindow(focused);
     sSelectedID = focused;
     break;
-  case kHotkeySplitH:
-    NSLog(@"[zaitan] splitH  pid=%u", sSelectedID);
-    sDesktop->splitHorizontally(sSelectedID ? sSelectedID : focused);
+  case kHotkeySplitH: {
+    uint32_t target = sSelectedID ? sSelectedID : focused;
+    NSLog(@"[zaitan] splitH  pid=%u", target);
+    if (sDesktop->splitHorizontally(target))
+      launchNewInstance(target);
     break;
-  case kHotkeySplitV:
-    NSLog(@"[zaitan] splitV  pid=%u", sSelectedID);
-    sDesktop->splitVertically(sSelectedID ? sSelectedID : focused);
+  }
+  case kHotkeySplitV: {
+    uint32_t target = sSelectedID ? sSelectedID : focused;
+    NSLog(@"[zaitan] splitV  pid=%u", target);
+    if (sDesktop->splitVertically(target))
+      launchNewInstance(target);
     break;
-  case kHotkeyRemove:
-    NSLog(@"[zaitan] remove  pid=%u", sSelectedID);
-    sDesktop->removeWindow(sSelectedID ? sSelectedID : focused);
+  }
+  case kHotkeyRemove: {
+    uint32_t target = sSelectedID ? sSelectedID : focused;
+    NSLog(@"[zaitan] remove  pid=%u", target);
+    sDesktop->removeWindow(target);
+    if (!sDesktop->assignWindow(target))
+      closeWindow(target);
     sSelectedID = 0;
     break;
+  }
   case kHotkeyMoveWinL:
     NSLog(@"[zaitan] move window left  pid=%u", sSelectedID);
     sDesktop->moveWindowHorizontally(sSelectedID ? sSelectedID : focused,
@@ -98,28 +116,28 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
   case kHotkeyMoveL: {
     uint32_t next = sDesktop->moveHorizontally(sSelectedID ? sSelectedID : focused,
                                                HorizontalDirection::Left);
-    if (next) sSelectedID = next;
+    if (next) { sSelectedID = next; focusWindow(next); }
     NSLog(@"[zaitan] select left  pid=%u next=>%u", sSelectedID, next);
     break;
   }
   case kHotkeyMoveR: {
     uint32_t next = sDesktop->moveHorizontally(sSelectedID ? sSelectedID : focused,
                                                HorizontalDirection::Right);
-    if (next) sSelectedID = next;
+    if (next) { sSelectedID = next; focusWindow(next); }
     NSLog(@"[zaitan] select right  pid=%u", sSelectedID);
     break;
   }
   case kHotkeyMoveU: {
     uint32_t next = sDesktop->moveVertically(sSelectedID ? sSelectedID : focused,
                                              VerticalDirection::Up);
-    if (next) sSelectedID = next;
+    if (next) { sSelectedID = next; focusWindow(next); }
     NSLog(@"[zaitan] select up  pid=%u", sSelectedID);
     break;
   }
   case kHotkeyMoveD: {
     uint32_t next = sDesktop->moveVertically(sSelectedID ? sSelectedID : focused,
                                              VerticalDirection::Down);
-    if (next) sSelectedID = next;
+    if (next) { sSelectedID = next; focusWindow(next); }
     NSLog(@"[zaitan] select down  pid=%u", sSelectedID);
     break;
   }
@@ -127,6 +145,57 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
 
   applyLayout();
   return noErr;
+}
+
+static void autoAssignWindow(uint32_t pid) {
+  if (!sDesktop->assignWindow(pid)) {
+    auto layout = sDesktop->getLayout();
+    if (layout.empty())
+      return;
+    uint32_t target = sSelectedID ? sSelectedID : layout.back().windowID;
+    sDesktop->splitHorizontally(target, pid);
+  }
+  sSelectedID = pid;
+  applyLayout();
+  focusWindow(pid);
+}
+
+void StartAutoAssign() {
+  auto pids = getAllWindowIDs();
+  if (!pids.empty()) {
+    sDesktop->assignWindow(pids[0]);
+    for (size_t i = 1; i < pids.size() && (int)i < MAX_PANES - 1; i++)
+      sDesktop->splitHorizontally(pids[i - 1], pids[i]);
+    applyLayout();
+  }
+
+  gActivateObserver = [[[NSWorkspace sharedWorkspace] notificationCenter]
+      addObserverForName:NSWorkspaceDidActivateApplicationNotification
+                  object:nil
+                   queue:[NSOperationQueue mainQueue]
+              usingBlock:^(NSNotification *note) {
+                NSRunningApplication *app = note.userInfo[NSWorkspaceApplicationKey];
+                uint32_t pid = (uint32_t)app.processIdentifier;
+                for (auto &p : sDesktop->getLayout()) {
+                  if (p.windowID == pid) {
+                    sSelectedID = pid;
+                    applyLayout();
+                    break;
+                  }
+                }
+              }];
+
+  gLaunchObserver = [[[NSWorkspace sharedWorkspace] notificationCenter]
+      addObserverForName:NSWorkspaceDidLaunchApplicationNotification
+                  object:nil
+                   queue:[NSOperationQueue mainQueue]
+              usingBlock:^(NSNotification *note) {
+                NSRunningApplication *app =
+                    note.userInfo[NSWorkspaceApplicationKey];
+                if (app.activationPolicy != NSApplicationActivationPolicyRegular)
+                  return;
+                autoAssignWindow((uint32_t)app.processIdentifier);
+              }];
 }
 
 void RegisterHotkeys(Desktop &desktop) {
@@ -182,4 +251,14 @@ void UnregisterHotkeys() {
     UnregisterEventHotKey(gHotkeySplitV);
   if (gHotkeyRemove)
     UnregisterEventHotKey(gHotkeyRemove);
+  if (gActivateObserver) {
+    [[[NSWorkspace sharedWorkspace] notificationCenter]
+        removeObserver:gActivateObserver];
+    gActivateObserver = nil;
+  }
+  if (gLaunchObserver) {
+    [[[NSWorkspace sharedWorkspace] notificationCenter]
+        removeObserver:gLaunchObserver];
+    gLaunchObserver = nil;
+  }
 }

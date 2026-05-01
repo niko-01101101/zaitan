@@ -1,6 +1,7 @@
 #include "../src/WMRect.hpp"
 #import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
+#include <vector>
 
 WMRect getScreenFrame(int display) {
   NSArray<NSScreen *> *screens = [NSScreen screens];
@@ -13,6 +14,53 @@ WMRect getScreenFrame(int display) {
           (int)visible.size.width, (int)visible.size.height};
 }
 
+std::vector<uint32_t> getAllWindowIDs() {
+  std::vector<uint32_t> ids;
+  pid_t myPID = getpid();
+  for (NSRunningApplication *app in [[NSWorkspace sharedWorkspace] runningApplications]) {
+    if (app.activationPolicy != NSApplicationActivationPolicyRegular ||
+        app.processIdentifier == myPID)
+      continue;
+    // Only include apps with an accessible window so empty pane slots aren't wasted
+    AXUIElementRef axApp = AXUIElementCreateApplication(app.processIdentifier);
+    AXUIElementRef window = nullptr;
+    AXUIElementCopyAttributeValue(axApp, kAXMainWindowAttribute, (CFTypeRef *)&window);
+    if (window) {
+      ids.push_back((uint32_t)app.processIdentifier);
+      CFRelease(window);
+    }
+    CFRelease(axApp);
+  }
+  return ids;
+}
+
+void focusWindow(uint32_t windowID) {
+  NSRunningApplication *app =
+      [NSRunningApplication runningApplicationWithProcessIdentifier:(pid_t)windowID];
+  [app activateWithOptions:NSApplicationActivateIgnoringOtherApps];
+}
+
+void launchNewInstance(uint32_t windowID) {
+  NSRunningApplication *app =
+      [NSRunningApplication runningApplicationWithProcessIdentifier:(pid_t)windowID];
+  if (!app || !app.bundleURL)
+    return;
+  NSWorkspaceOpenConfiguration *config = [NSWorkspaceOpenConfiguration configuration];
+  config.createsNewApplicationInstance = YES;
+  [[NSWorkspace sharedWorkspace] openApplicationAtURL:app.bundleURL
+                                        configuration:config
+                                    completionHandler:nil];
+}
+
+void closeWindow(uint32_t windowID) {
+  for (NSRunningApplication *app in [[NSWorkspace sharedWorkspace] runningApplications]) {
+    if ((uint32_t)app.processIdentifier == windowID) {
+      [app terminate];
+      return;
+    }
+  }
+}
+
 uint32_t getFrontmostWindowID() {
   return (uint32_t)[[[NSWorkspace sharedWorkspace] frontmostApplication]
       processIdentifier];
@@ -21,8 +69,9 @@ uint32_t getFrontmostWindowID() {
 void applyFrame(uint32_t windowID, WMRect frame) {
   AXUIElementRef app = AXUIElementCreateApplication((pid_t)windowID);
   AXUIElementRef window = nullptr;
-  AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute,
-                                (CFTypeRef *)&window);
+  AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute, (CFTypeRef *)&window);
+  if (!window)
+    AXUIElementCopyAttributeValue(app, kAXMainWindowAttribute, (CFTypeRef *)&window);
   if (window) {
     CGPoint pos = {(CGFloat)frame.x, (CGFloat)frame.y};
     CGSize size = {(CGFloat)frame.width, (CGFloat)frame.height};

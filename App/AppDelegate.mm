@@ -4,6 +4,7 @@
 
 extern WMRect getScreenFrame(int display);
 extern void RegisterHotkeys(Desktop &desktop);
+extern void StartAutoAssign();
 extern void UnregisterHotkeys();
 
 static Desktop *gDesktop = nullptr;
@@ -18,6 +19,7 @@ static Desktop *gDesktop = nullptr;
 
     gDesktop = new Desktop(getScreenFrame(0));
     RegisterHotkeys(*gDesktop);
+    StartAutoAssign();
 }
 
 - (void)applicationWillTerminate:(NSNotification *)notification {
