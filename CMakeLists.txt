@@ -23,8 +23,7 @@ set_target_properties(Zaitan PROPERTIES
 
 target_include_directories(Zaitan PRIVATE src)
 
-option(ZAITAN_DEBUG "Enable debug overlay" OFF)
-if(ZAITAN_DEBUG)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_definitions(Zaitan PRIVATE DEBUG)
 endif()
 

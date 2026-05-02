@@ -1,13 +1,11 @@
 #import "AppDelegate.h"
 #import <ApplicationServices/ApplicationServices.h>
-#include "../src/Desktop.hpp"
+#include "../src/WMRect.hpp"
 
 extern WMRect getScreenFrame(int display);
-extern void RegisterHotkeys(Desktop &desktop);
+extern void RegisterHotkeys(WMRect screenFrame);
 extern void StartAutoAssign();
 extern void UnregisterHotkeys();
-
-static Desktop *gDesktop = nullptr;
 
 @implementation AppDelegate
 
@@ -17,15 +15,12 @@ static Desktop *gDesktop = nullptr;
         AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
     }
 
-    gDesktop = new Desktop(getScreenFrame(0));
-    RegisterHotkeys(*gDesktop);
+    RegisterHotkeys(getScreenFrame(0));
     StartAutoAssign();
 }
 
 - (void)applicationWillTerminate:(NSNotification *)notification {
     UnregisterHotkeys();
-    delete gDesktop;
-    gDesktop = nullptr;
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender {

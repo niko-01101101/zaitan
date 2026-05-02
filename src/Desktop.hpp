@@ -48,5 +48,7 @@ public:
   uint32_t moveHorizontally(uint32_t selectedID, HorizontalDirection direction);
   uint32_t moveVertically(uint32_t selectedID, VerticalDirection direction);
 
+  void flipSplits();
+
   std::vector<WindowPlacement> getLayout() const;
 };

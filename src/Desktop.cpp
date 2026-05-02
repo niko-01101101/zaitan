@@ -139,6 +139,21 @@ bool Desktop::removeWindow(uint32_t windowID) {
   return true;
 }
 
+static void flipSplitDirs(Node *node) {
+  if (!node || node->isLeaf())
+    return;
+  node->split = (node->split == SplitDirection::Horizontal)
+                    ? SplitDirection::Vertical
+                    : SplitDirection::Horizontal;
+  flipSplitDirs(node->left.get());
+  flipSplitDirs(node->right.get());
+}
+
+void Desktop::flipSplits() {
+  flipSplitDirs(root.get());
+  reframe(root.get(), root->frame);
+}
+
 std::vector<WindowPlacement> Desktop::getLayout() const {
   std::vector<WindowPlacement> layout;
   collectLayout(root.get(), layout);
