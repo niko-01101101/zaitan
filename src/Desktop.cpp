@@ -89,6 +89,10 @@ Desktop::Desktop(WMRect screenFrame) {
   paneCount = 1;
 }
 
+bool Desktop::containsWindow(uint32_t windowID) {
+  return findByWindowID(root.get(), windowID) != nullptr;
+}
+
 bool Desktop::assignWindow(uint32_t windowID) {
   if (findByWindowID(root.get(), windowID))
     return false;

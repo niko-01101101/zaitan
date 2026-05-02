@@ -39,6 +39,7 @@ private:
 public:
   Desktop(WMRect screenFrame);
 
+  bool containsWindow(uint32_t windowID);
   bool assignWindow(uint32_t windowID);
   bool splitHorizontally(uint32_t windowID, uint32_t newWindowID = 0);
   bool splitVertically(uint32_t windowID, uint32_t newWindowID = 0);

@@ -40,7 +40,7 @@ void focusWindow(uint32_t windowID) {
   [app activateWithOptions:NSApplicationActivateIgnoringOtherApps];
 }
 
-void launchNewInstance(uint32_t windowID) {
+void launchNewInstance(uint32_t windowID, void (^onSuccess)(uint32_t newPID)) {
   NSRunningApplication *app =
       [NSRunningApplication runningApplicationWithProcessIdentifier:(pid_t)windowID];
   if (!app || !app.bundleURL)
@@ -49,7 +49,12 @@ void launchNewInstance(uint32_t windowID) {
   config.createsNewApplicationInstance = YES;
   [[NSWorkspace sharedWorkspace] openApplicationAtURL:app.bundleURL
                                         configuration:config
-                                    completionHandler:nil];
+                                    completionHandler:^(NSRunningApplication *newApp, NSError *) {
+    if (!newApp) return;
+    uint32_t newPID = (uint32_t)newApp.processIdentifier;
+    if (newPID == windowID) return; // single-instance app, no new process
+    dispatch_async(dispatch_get_main_queue(), ^{ onSuccess(newPID); });
+  }];
 }
 
 void closeWindow(uint32_t windowID) {

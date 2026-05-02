@@ -11,6 +11,7 @@ set(SOURCES
     app/AppDelegate.mm
     platform/WindowController.mm
     platform/DebugOverlay.mm
+    platform/FadeOverlay.mm
     input/Hotkeys.mm
     src/Desktop.cpp
 )

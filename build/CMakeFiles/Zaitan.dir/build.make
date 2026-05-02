@@ -128,10 +128,24 @@ CMakeFiles/Zaitan.dir/platform/DebugOverlay.mm.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling OBJCXX source to assembly CMakeFiles/Zaitan.dir/platform/DebugOverlay.mm.s"
 	/usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -S /Users/niko.01101101/Documents/GitHub/zaitan/platform/DebugOverlay.mm -o CMakeFiles/Zaitan.dir/platform/DebugOverlay.mm.s
 
+CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.o: CMakeFiles/Zaitan.dir/flags.make
+CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.o: /Users/niko.01101101/Documents/GitHub/zaitan/platform/FadeOverlay.mm
+CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.o: CMakeFiles/Zaitan.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building OBJCXX object CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.o"
+	/usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) -x objective-c++ $(OBJCXX_FLAGS) -MD -MT CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.o -MF CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.o.d -o CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.o -c /Users/niko.01101101/Documents/GitHub/zaitan/platform/FadeOverlay.mm
+
+CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing OBJCXX source to CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.i"
+	/usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -E /Users/niko.01101101/Documents/GitHub/zaitan/platform/FadeOverlay.mm > CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.i
+
+CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling OBJCXX source to assembly CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.s"
+	/usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -S /Users/niko.01101101/Documents/GitHub/zaitan/platform/FadeOverlay.mm -o CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.s
+
 CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o: CMakeFiles/Zaitan.dir/flags.make
 CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o: /Users/niko.01101101/Documents/GitHub/zaitan/input/Hotkeys.mm
 CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o: CMakeFiles/Zaitan.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building OBJCXX object CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building OBJCXX object CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o"
 	/usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) -x objective-c++ $(OBJCXX_FLAGS) -MD -MT CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o -MF CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o.d -o CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o -c /Users/niko.01101101/Documents/GitHub/zaitan/input/Hotkeys.mm
 
 CMakeFiles/Zaitan.dir/input/Hotkeys.mm.i: cmake_force
@@ -145,7 +159,7 @@ CMakeFiles/Zaitan.dir/input/Hotkeys.mm.s: cmake_force
 CMakeFiles/Zaitan.dir/src/Desktop.cpp.o: CMakeFiles/Zaitan.dir/flags.make
 CMakeFiles/Zaitan.dir/src/Desktop.cpp.o: /Users/niko.01101101/Documents/GitHub/zaitan/src/Desktop.cpp
 CMakeFiles/Zaitan.dir/src/Desktop.cpp.o: CMakeFiles/Zaitan.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/Zaitan.dir/src/Desktop.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/Zaitan.dir/src/Desktop.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/Zaitan.dir/src/Desktop.cpp.o -MF CMakeFiles/Zaitan.dir/src/Desktop.cpp.o.d -o CMakeFiles/Zaitan.dir/src/Desktop.cpp.o -c /Users/niko.01101101/Documents/GitHub/zaitan/src/Desktop.cpp
 
 CMakeFiles/Zaitan.dir/src/Desktop.cpp.i: cmake_force
@@ -162,6 +176,7 @@ Zaitan_OBJECTS = \
 "CMakeFiles/Zaitan.dir/app/AppDelegate.mm.o" \
 "CMakeFiles/Zaitan.dir/platform/WindowController.mm.o" \
 "CMakeFiles/Zaitan.dir/platform/DebugOverlay.mm.o" \
+"CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.o" \
 "CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o" \
 "CMakeFiles/Zaitan.dir/src/Desktop.cpp.o"
 
@@ -172,11 +187,12 @@ Zaitan.app/Contents/MacOS/Zaitan: CMakeFiles/Zaitan.dir/app/main.mm.o
 Zaitan.app/Contents/MacOS/Zaitan: CMakeFiles/Zaitan.dir/app/AppDelegate.mm.o
 Zaitan.app/Contents/MacOS/Zaitan: CMakeFiles/Zaitan.dir/platform/WindowController.mm.o
 Zaitan.app/Contents/MacOS/Zaitan: CMakeFiles/Zaitan.dir/platform/DebugOverlay.mm.o
+Zaitan.app/Contents/MacOS/Zaitan: CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.o
 Zaitan.app/Contents/MacOS/Zaitan: CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o
 Zaitan.app/Contents/MacOS/Zaitan: CMakeFiles/Zaitan.dir/src/Desktop.cpp.o
 Zaitan.app/Contents/MacOS/Zaitan: CMakeFiles/Zaitan.dir/build.make
 Zaitan.app/Contents/MacOS/Zaitan: CMakeFiles/Zaitan.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX executable Zaitan.app/Contents/MacOS/Zaitan"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Linking CXX executable Zaitan.app/Contents/MacOS/Zaitan"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/Zaitan.dir/link.txt --verbose=$(VERBOSE)
 	xattr -cr /Users/niko.01101101/Documents/GitHub/zaitan/build/Zaitan.app
 	codesign --force --deep --sign - /Users/niko.01101101/Documents/GitHub/zaitan/build/Zaitan.app

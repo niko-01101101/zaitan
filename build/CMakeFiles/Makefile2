@@ -85,12 +85,12 @@ clean: CMakeFiles/Zaitan.dir/clean
 CMakeFiles/Zaitan.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=1,2,3,4,5,6,7 "Built target Zaitan"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=1,2,3,4,5,6,7,8 "Built target Zaitan"
 .PHONY : CMakeFiles/Zaitan.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/Zaitan.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles 7
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles 8
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/Zaitan.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles 0
 .PHONY : CMakeFiles/Zaitan.dir/rule
@@ -102,7 +102,7 @@ Zaitan: CMakeFiles/Zaitan.dir/rule
 # codegen rule for target.
 CMakeFiles/Zaitan.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=1,2,3,4,5,6,7 "Finished codegen for target Zaitan"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/niko.01101101/Documents/GitHub/zaitan/build/CMakeFiles --progress-num=1,2,3,4,5,6,7,8 "Finished codegen for target Zaitan"
 .PHONY : CMakeFiles/Zaitan.dir/codegen
 
 # clean rule for target.

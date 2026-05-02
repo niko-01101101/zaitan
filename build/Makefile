@@ -161,6 +161,14 @@ platform/DebugOverlay.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/platform/DebugOverlay.mm.o
 .PHONY : platform/DebugOverlay.mm.o
 
+platform/FadeOverlay.o: platform/FadeOverlay.mm.o
+.PHONY : platform/FadeOverlay.o
+
+# target to build an object file
+platform/FadeOverlay.mm.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/platform/FadeOverlay.mm.o
+.PHONY : platform/FadeOverlay.mm.o
+
 platform/WindowController.o: platform/WindowController.mm.o
 .PHONY : platform/WindowController.o
 
@@ -206,6 +214,7 @@ help:
 	@echo "... app/main.o"
 	@echo "... input/Hotkeys.o"
 	@echo "... platform/DebugOverlay.o"
+	@echo "... platform/FadeOverlay.o"
 	@echo "... platform/WindowController.o"
 	@echo "... src/Desktop.o"
 	@echo "... src/Desktop.i"

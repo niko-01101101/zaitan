@@ -7,8 +7,9 @@ extern uint32_t getFrontmostWindowID();
 extern std::vector<uint32_t> getAllWindowIDs();
 extern void applyFrame(uint32_t windowID, WMRect frame);
 extern void closeWindow(uint32_t windowID);
-extern void launchNewInstance(uint32_t windowID);
+extern void launchNewInstance(uint32_t windowID, void (^onSuccess)(uint32_t newPID));
 extern void focusWindow(uint32_t windowID);
+extern void performWithFade(void (^work)(void));
 
 #ifdef DEBUG
 extern void showDebugOverlay(const std::vector<WindowPlacement> &placements,
@@ -62,19 +63,21 @@ static void addWindowToDesktop(Desktop *desktop, uint32_t windowID) {
 
 // Switches to the desktop at newIndex: hides current, shows next, restores selection.
 static void switchToDesktop(int newIndex) {
-  hideDesktopWindows(currentDesktop());
-  sCurrentDesktopIndex = newIndex;
-  uint32_t toFocus = selectedID();
-  if (!toFocus) {
-    auto layout = currentDesktop()->getLayout();
-    if (!layout.empty())
-      toFocus = layout.back().windowID;
-  }
-  if (toFocus) {
-    selectedID() = toFocus;
-    focusWindow(toFocus);
-  }
-  applyLayout();
+  performWithFade(^{
+    hideDesktopWindows(currentDesktop());
+    sCurrentDesktopIndex = newIndex;
+    uint32_t toFocus = selectedID();
+    if (!toFocus) {
+      auto layout = currentDesktop()->getLayout();
+      if (!layout.empty())
+        toFocus = layout.back().windowID;
+    }
+    if (toFocus) {
+      selectedID() = toFocus;
+      focusWindow(toFocus);
+    }
+    applyLayout();
+  });
 }
 
 enum : UInt32 {
@@ -131,15 +134,25 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
   case kHotkeySplitH: {
     uint32_t target = selectedID() ? selectedID() : focused;
     NSLog(@"[zaitan] splitH  pid=%u", target);
-    if (currentDesktop()->splitHorizontally(target))
-      launchNewInstance(target);
+    launchNewInstance(target, ^(uint32_t newPID) {
+      if (currentDesktop()->containsWindow(newPID)) return;
+      currentDesktop()->splitHorizontally(target, newPID);
+      selectedID() = newPID;
+      applyLayout();
+      focusWindow(newPID);
+    });
     break;
   }
   case kHotkeySplitV: {
     uint32_t target = selectedID() ? selectedID() : focused;
     NSLog(@"[zaitan] splitV  pid=%u", target);
-    if (currentDesktop()->splitVertically(target))
-      launchNewInstance(target);
+    launchNewInstance(target, ^(uint32_t newPID) {
+      if (currentDesktop()->containsWindow(newPID)) return;
+      currentDesktop()->splitVertically(target, newPID);
+      selectedID() = newPID;
+      applyLayout();
+      focusWindow(newPID);
+    });
     break;
   }
   case kHotkeyRemove: {
@@ -248,6 +261,13 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
 }
 
 static void autoAssignWindow(uint32_t pid) {
+  // If already placed by a split callback that beat the notification, just focus.
+  if (currentDesktop()->containsWindow(pid)) {
+    selectedID() = pid;
+    applyLayout();
+    focusWindow(pid);
+    return;
+  }
   if (!currentDesktop()->assignWindow(pid)) {
     auto layout = currentDesktop()->getLayout();
     if (layout.empty())
@@ -280,7 +300,9 @@ void StartAutoAssign() {
       else
         currentDesktop()->splitVertically(pids[i - 1], pids[i]);
     }
+    selectedID() = pids[0];
     applyLayout();
+    focusWindow(pids[0]);
   }
 
   gActivateObserver = [[[NSWorkspace sharedWorkspace] notificationCenter]
