@@ -2,6 +2,27 @@
 #import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
 #include <vector>
+#include <dlfcn.h>
+
+// CGS private API for per-window alpha.
+static int   (*sCGSMainConnection)(void)           = nullptr;
+static int   (*sCGSSetWindowAlpha)(int, int, float) = nullptr;
+
+static bool cgsFunctionsAvailable() {
+  if (sCGSMainConnection) return true;
+  const char *paths[] = {
+    "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight",
+    "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+  };
+  for (const char *path : paths) {
+    void *h = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
+    if (!h) continue;
+    sCGSMainConnection  = (int(*)(void))         dlsym(h, "CGSMainConnection");
+    sCGSSetWindowAlpha  = (int(*)(int,int,float)) dlsym(h, "CGSSetWindowAlpha");
+    if (sCGSMainConnection && sCGSSetWindowAlpha) return true;
+  }
+  return false;
+}
 
 WMRect getScreenFrame(int display) {
   NSArray<NSScreen *> *screens = [NSScreen screens];
@@ -9,42 +30,163 @@ WMRect getScreenFrame(int display) {
   NSRect visible = screen.visibleFrame;
   CGFloat screenHeight = screen.frame.size.height;
   CGFloat barHeight = screenHeight - visible.size.height;
-  // NSScreen uses bottom-left origin; AX API uses top-left origin
   return {(int)visible.origin.x, (int)visible.origin.y + (int)barHeight,
           (int)visible.size.width, (int)visible.size.height};
 }
 
-std::vector<uint32_t> getAllWindowIDs() {
-  std::vector<uint32_t> ids;
-  pid_t myPID = getpid();
-  for (NSRunningApplication *app in [[NSWorkspace sharedWorkspace] runningApplications]) {
-    if (app.activationPolicy != NSApplicationActivationPolicyRegular ||
-        app.processIdentifier == myPID)
-      continue;
-    // Only include apps with an accessible window so empty pane slots aren't wasted
-    AXUIElementRef axApp = AXUIElementCreateApplication(app.processIdentifier);
-    AXUIElementRef window = nullptr;
-    AXUIElementCopyAttributeValue(axApp, kAXMainWindowAttribute, (CFTypeRef *)&window);
-    if (window) {
-      ids.push_back((uint32_t)app.processIdentifier);
-      CFRelease(window);
+// ----- Private helpers -----
+
+static pid_t pidForCGWindowID(uint32_t cgwid) {
+  CFArrayRef list = CGWindowListCopyWindowInfo(kCGWindowListOptionAll, kCGNullWindowID);
+  if (!list) return 0;
+  pid_t pid = 0;
+  NSString *pidKey = (__bridge NSString *)kCGWindowOwnerPID;
+  NSString *numKey = (__bridge NSString *)kCGWindowNumber;
+  for (NSDictionary *entry in (__bridge NSArray *)list) {
+    if ([entry[numKey] unsignedIntValue] == cgwid) {
+      pid = (pid_t)[entry[pidKey] intValue];
+      break;
     }
-    CFRelease(axApp);
   }
+  CFRelease(list);
+  return pid;
+}
+
+// Returns the AX element for the window with the given CGWindowID. Caller must CFRelease.
+static AXUIElementRef axWindowForCGWindowID(uint32_t cgwid) {
+  pid_t pid = pidForCGWindowID(cgwid);
+  if (!pid) return nullptr;
+  AXUIElementRef appElem = AXUIElementCreateApplication(pid);
+  CFArrayRef wins = nullptr;
+  AXUIElementCopyAttributeValue(appElem, kAXWindowsAttribute, (CFTypeRef *)&wins);
+
+  if (wins) {
+    AXUIElementRef result = nullptr;
+    CFIndex count = CFArrayGetCount(wins);
+    for (CFIndex i = 0; i < count; i++) {
+      AXUIElementRef w = (AXUIElementRef)CFArrayGetValueAtIndex(wins, i);
+      CFTypeRef wnum = nullptr;
+      if (AXUIElementCopyAttributeValue(w, CFSTR("AXWindowID"), &wnum) == kAXErrorSuccess && wnum) {
+        bool match = [(__bridge NSNumber *)wnum unsignedIntValue] == cgwid;
+        CFRelease(wnum);
+        if (match) { result = (AXUIElementRef)CFRetain(w); break; }
+      }
+    }
+    // Fall back to first window if AXWindowID attribute not exposed
+    if (!result && count > 0)
+      result = (AXUIElementRef)CFRetain(CFArrayGetValueAtIndex(wins, 0));
+    CFRelease(wins);
+    CFRelease(appElem);
+    return result;
+  }
+
+  // Final fallback: focused or main window
+  AXUIElementRef window = nullptr;
+  AXUIElementCopyAttributeValue(appElem, kAXFocusedWindowAttribute, (CFTypeRef *)&window);
+  if (!window)
+    AXUIElementCopyAttributeValue(appElem, kAXMainWindowAttribute, (CFTypeRef *)&window);
+  CFRelease(appElem);
+  return window;
+}
+
+// ----- Public API -----
+
+// Returns CGWindowIDs for all visible normal windows owned by the given PID.
+std::vector<uint32_t> getWindowIDsForPID(uint32_t pid) {
+  std::vector<uint32_t> ids;
+  CFArrayRef list = CGWindowListCopyWindowInfo(
+      kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+      kCGNullWindowID);
+  if (!list) return ids;
+  NSString *pidKey = (__bridge NSString *)kCGWindowOwnerPID;
+  NSString *layKey = (__bridge NSString *)kCGWindowLayer;
+  NSString *numKey = (__bridge NSString *)kCGWindowNumber;
+  NSString *bndKey = (__bridge NSString *)kCGWindowBounds;
+  for (NSDictionary *entry in (__bridge NSArray *)list) {
+    if ([entry[layKey] intValue] != 0) continue;
+    if ([entry[pidKey] unsignedIntValue] != pid) continue;
+    NSDictionary *b = entry[bndKey];
+    if (!b || [b[@"Width"] floatValue] < 100 || [b[@"Height"] floatValue] < 100) continue;
+    ids.push_back([entry[numKey] unsignedIntValue]);
+  }
+  CFRelease(list);
   return ids;
 }
 
-void focusWindow(uint32_t windowID) {
-  NSRunningApplication *app =
-      [NSRunningApplication runningApplicationWithProcessIdentifier:(pid_t)windowID];
-  [app activateWithOptions:NSApplicationActivateIgnoringOtherApps];
+// Returns CGWindowIDs for all visible normal windows belonging to regular apps.
+std::vector<uint32_t> getAllWindowIDs() {
+  std::vector<uint32_t> ids;
+  pid_t myPID = getpid();
+  NSMutableSet<NSNumber *> *regularPIDs = [NSMutableSet set];
+  for (NSRunningApplication *app in [[NSWorkspace sharedWorkspace] runningApplications]) {
+    if (app.activationPolicy == NSApplicationActivationPolicyRegular &&
+        app.processIdentifier != myPID)
+      [regularPIDs addObject:@(app.processIdentifier)];
+  }
+  CFArrayRef list = CGWindowListCopyWindowInfo(
+      kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+      kCGNullWindowID);
+  if (!list) return ids;
+  NSString *pidKey = (__bridge NSString *)kCGWindowOwnerPID;
+  NSString *layKey = (__bridge NSString *)kCGWindowLayer;
+  NSString *numKey = (__bridge NSString *)kCGWindowNumber;
+  NSString *bndKey = (__bridge NSString *)kCGWindowBounds;
+  for (NSDictionary *entry in (__bridge NSArray *)list) {
+    if ([entry[layKey] intValue] != 0) continue;
+    if (![regularPIDs containsObject:entry[pidKey]]) continue;
+    NSDictionary *b = entry[bndKey];
+    if (!b || [b[@"Width"] floatValue] < 100 || [b[@"Height"] floatValue] < 100) continue;
+    ids.push_back([entry[numKey] unsignedIntValue]);
+  }
+  CFRelease(list);
+  return ids;
 }
 
-void launchNewInstance(uint32_t windowID, void (^onSuccess)(uint32_t newPID)) {
+// Returns the CGWindowID of the frontmost app's focused window, or 0.
+uint32_t getFrontmostWindowID() {
+  NSRunningApplication *front = [[NSWorkspace sharedWorkspace] frontmostApplication];
+  if (!front) return 0;
+  pid_t pid = front.processIdentifier;
+  AXUIElementRef appElem = AXUIElementCreateApplication(pid);
+  AXUIElementRef window = nullptr;
+  AXUIElementCopyAttributeValue(appElem, kAXFocusedWindowAttribute, (CFTypeRef *)&window);
+  if (!window)
+    AXUIElementCopyAttributeValue(appElem, kAXMainWindowAttribute, (CFTypeRef *)&window);
+  CFRelease(appElem);
+  if (window) {
+    CFTypeRef wnum = nullptr;
+    AXUIElementCopyAttributeValue(window, CFSTR("AXWindowID"), &wnum);
+    CFRelease(window);
+    if (wnum) {
+      uint32_t cgwid = [(__bridge NSNumber *)wnum unsignedIntValue];
+      CFRelease(wnum);
+      if (cgwid) return cgwid;
+    }
+  }
+  // Fallback for apps that don't expose focused/main window via AX (e.g. Arc, Messages).
+  auto ids = getWindowIDsForPID((uint32_t)pid);
+  return ids.empty() ? 0 : ids[0];
+}
+
+void focusWindow(uint32_t cgwid) {
+  pid_t pid = pidForCGWindowID(cgwid);
+  if (!pid) return;
   NSRunningApplication *app =
-      [NSRunningApplication runningApplicationWithProcessIdentifier:(pid_t)windowID];
-  if (!app || !app.bundleURL)
-    return;
+      [NSRunningApplication runningApplicationWithProcessIdentifier:pid];
+  [app activateWithOptions:0];
+  AXUIElementRef window = axWindowForCGWindowID(cgwid);
+  if (window) {
+    AXUIElementPerformAction(window, kAXRaiseAction);
+    CFRelease(window);
+  }
+}
+
+void launchNewInstance(uint32_t cgwid, void (^onSuccess)(uint32_t originalPID, uint32_t newPID)) {
+  pid_t pid = pidForCGWindowID(cgwid);
+  if (!pid) return;
+  NSRunningApplication *app =
+      [NSRunningApplication runningApplicationWithProcessIdentifier:pid];
+  if (!app || !app.bundleURL) return;
   NSWorkspaceOpenConfiguration *config = [NSWorkspaceOpenConfiguration configuration];
   config.createsNewApplicationInstance = YES;
   [[NSWorkspace sharedWorkspace] openApplicationAtURL:app.bundleURL
@@ -52,41 +194,44 @@ void launchNewInstance(uint32_t windowID, void (^onSuccess)(uint32_t newPID)) {
                                     completionHandler:^(NSRunningApplication *newApp, NSError *) {
     if (!newApp) return;
     uint32_t newPID = (uint32_t)newApp.processIdentifier;
-    if (newPID == windowID) return; // single-instance app, no new process
-    dispatch_async(dispatch_get_main_queue(), ^{ onSuccess(newPID); });
+    // Pass originalPID so caller can distinguish same-process (e.g. Kitty) from new-process apps.
+    dispatch_async(dispatch_get_main_queue(), ^{ onSuccess((uint32_t)pid, newPID); });
   }];
 }
 
-void closeWindow(uint32_t windowID) {
-  for (NSRunningApplication *app in [[NSWorkspace sharedWorkspace] runningApplications]) {
-    if ((uint32_t)app.processIdentifier == windowID) {
-      [app terminate];
-      return;
-    }
+void closeWindow(uint32_t cgwid) {
+  AXUIElementRef window = axWindowForCGWindowID(cgwid);
+  if (!window) return;
+  AXUIElementRef btn = nullptr;
+  AXUIElementCopyAttributeValue(window, kAXCloseButtonAttribute, (CFTypeRef *)&btn);
+  if (btn) {
+    AXUIElementPerformAction(btn, kAXPressAction);
+    CFRelease(btn);
   }
+  CFRelease(window);
 }
 
-uint32_t getFrontmostWindowID() {
-  return (uint32_t)[[[NSWorkspace sharedWorkspace] frontmostApplication]
-      processIdentifier];
+// CGWindowID == CGS window number, so this is a trivial passthrough.
+void getCGSWindowIDs(const uint32_t *ids, int *out, int count) {
+  for (int i = 0; i < count; i++) out[i] = (int)ids[i];
 }
 
-void applyFrame(uint32_t windowID, WMRect frame) {
-  AXUIElementRef app = AXUIElementCreateApplication((pid_t)windowID);
-  AXUIElementRef window = nullptr;
-  AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute, (CFTypeRef *)&window);
-  if (!window)
-    AXUIElementCopyAttributeValue(app, kAXMainWindowAttribute, (CFTypeRef *)&window);
-  if (window) {
-    CGPoint pos = {(CGFloat)frame.x, (CGFloat)frame.y};
-    CGSize size = {(CGFloat)frame.width, (CGFloat)frame.height};
-    AXValueRef posVal = AXValueCreate((AXValueType)kAXValueCGPointType, &pos);
-    AXValueRef sizeVal = AXValueCreate((AXValueType)kAXValueCGSizeType, &size);
-    AXUIElementSetAttributeValue(window, kAXPositionAttribute, posVal);
-    AXUIElementSetAttributeValue(window, kAXSizeAttribute, sizeVal);
-    CFRelease(posVal);
-    CFRelease(sizeVal);
-    CFRelease(window);
-  }
-  CFRelease(app);
+void setCGSWindowAlpha(int cgwid, float alpha) {
+  if (cgwid && cgsFunctionsAvailable())
+    sCGSSetWindowAlpha(sCGSMainConnection(), cgwid, alpha);
+}
+
+bool applyFrame(uint32_t cgwid, WMRect frame) {
+  AXUIElementRef window = axWindowForCGWindowID(cgwid);
+  if (!window) return false;
+  CGPoint pos = {(CGFloat)frame.x, (CGFloat)frame.y};
+  CGSize size = {(CGFloat)frame.width, (CGFloat)frame.height};
+  AXValueRef posVal  = AXValueCreate((AXValueType)kAXValueCGPointType, &pos);
+  AXValueRef sizeVal = AXValueCreate((AXValueType)kAXValueCGSizeType,  &size);
+  AXUIElementSetAttributeValue(window, kAXPositionAttribute, posVal);
+  AXUIElementSetAttributeValue(window, kAXSizeAttribute,     sizeVal);
+  CFRelease(posVal);
+  CFRelease(sizeVal);
+  CFRelease(window);
+  return true;
 }

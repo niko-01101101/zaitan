@@ -3,6 +3,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/Zaitan.dir/app/AppDelegate.mm.o.d"
   "CMakeFiles/Zaitan.dir/app/main.mm.o"
   "CMakeFiles/Zaitan.dir/app/main.mm.o.d"
+  "CMakeFiles/Zaitan.dir/config/Config.mm.o"
+  "CMakeFiles/Zaitan.dir/config/Config.mm.o.d"
   "CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o"
   "CMakeFiles/Zaitan.dir/input/Hotkeys.mm.o.d"
   "CMakeFiles/Zaitan.dir/platform/DebugOverlay.mm.o"

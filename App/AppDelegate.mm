@@ -1,9 +1,10 @@
 #import "AppDelegate.h"
 #import <ApplicationServices/ApplicationServices.h>
 #include "../src/WMRect.hpp"
+#include "../config/Config.hpp"
 
 extern WMRect getScreenFrame(int display);
-extern void RegisterHotkeys(WMRect screenFrame);
+extern void RegisterHotkeys(WMRect screenFrame, Config config);
 extern void StartAutoAssign();
 extern void UnregisterHotkeys();
 
@@ -15,7 +16,7 @@ extern void UnregisterHotkeys();
         AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
     }
 
-    RegisterHotkeys(getScreenFrame(0));
+    RegisterHotkeys(getScreenFrame(0), loadConfig());
     StartAutoAssign();
 }
 

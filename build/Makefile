@@ -145,6 +145,14 @@ app/main.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/app/main.mm.o
 .PHONY : app/main.mm.o
 
+config/Config.o: config/Config.mm.o
+.PHONY : config/Config.o
+
+# target to build an object file
+config/Config.mm.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Zaitan.dir/build.make CMakeFiles/Zaitan.dir/config/Config.mm.o
+.PHONY : config/Config.mm.o
+
 input/Hotkeys.o: input/Hotkeys.mm.o
 .PHONY : input/Hotkeys.o
 
@@ -212,6 +220,7 @@ help:
 	@echo "... Zaitan"
 	@echo "... app/AppDelegate.o"
 	@echo "... app/main.o"
+	@echo "... config/Config.o"
 	@echo "... input/Hotkeys.o"
 	@echo "... platform/DebugOverlay.o"
 	@echo "... platform/FadeOverlay.o"

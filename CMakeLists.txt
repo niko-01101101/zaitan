@@ -9,6 +9,7 @@ enable_language(OBJCXX)
 set(SOURCES
     app/main.mm
     app/AppDelegate.mm
+    config/Config.mm
     platform/WindowController.mm
     platform/DebugOverlay.mm
     platform/FadeOverlay.mm

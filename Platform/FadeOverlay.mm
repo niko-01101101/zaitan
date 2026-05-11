@@ -2,7 +2,7 @@
 
 static NSWindow *sFadeWindow = nil;
 
-void performWithFade(void (^work)(void)) {
+static NSWindow *coverWindow() {
     if (!sFadeWindow) {
         NSRect screen = [[NSScreen mainScreen] frame];
         sFadeWindow = [[NSWindow alloc] initWithContentRect:screen
@@ -20,19 +20,40 @@ void performWithFade(void (^work)(void)) {
             NSWindowCollectionBehaviorStationary |
             NSWindowCollectionBehaviorIgnoresCycle;
     }
+    return sFadeWindow;
+}
 
-    [sFadeWindow orderFront:nil];
-
+// Slow fade-in then fade-out — used for desktop switches.
+void performWithFade(void (^work)(void)) {
+    NSWindow *w = coverWindow();
+    [w orderFront:nil];
     [NSAnimationContext runAnimationGroup:^(NSAnimationContext *ctx) {
         ctx.duration = 0.015;
-        [sFadeWindow.animator setAlphaValue:1.0];
+        [w.animator setAlphaValue:1.0];
     } completionHandler:^{
         work();
         [NSAnimationContext runAnimationGroup:^(NSAnimationContext *ctx) {
             ctx.duration = 0.20;
-            [sFadeWindow.animator setAlphaValue:0.0];
+            [w.animator setAlphaValue:0.0];
         } completionHandler:^{
-            [sFadeWindow orderOut:nil];
+            [w orderOut:nil];
         }];
+    }];
+}
+
+// Instant cover then quick fade-out — used to hide window repositioning.
+void performWithCover(void (^work)(void)) {
+    NSWindow *w = coverWindow();
+    [w orderFront:nil];
+    [NSAnimationContext beginGrouping];
+    [NSAnimationContext currentContext].duration = 0;
+    w.alphaValue = 1.0;
+    [NSAnimationContext endGrouping];
+    work();
+    [NSAnimationContext runAnimationGroup:^(NSAnimationContext *ctx) {
+        ctx.duration = 0.08;
+        [w.animator setAlphaValue:0.0];
+    } completionHandler:^{
+        [w orderOut:nil];
     }];
 }

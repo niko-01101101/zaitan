@@ -1453,4 +1453,5 @@ CMakeFiles/Zaitan.dir/app/AppDelegate.mm.o: \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreData.framework/Headers/NSLightweightMigrationStage.h \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreData.framework/Headers/NSManagedObjectModelReference.h \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreData.framework/Headers/NSCoreDataCoreSpotlightDelegate.h \
-  /Users/niko.01101101/Documents/GitHub/zaitan/app/../src/WMRect.hpp
+  /Users/niko.01101101/Documents/GitHub/zaitan/app/../src/WMRect.hpp \
+  /Users/niko.01101101/Documents/GitHub/zaitan/app/../config/Config.hpp
