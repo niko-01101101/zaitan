@@ -29,6 +29,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_definitions(Zaitan PRIVATE DEBUG)
 endif()
 
+target_compile_options(Zaitan PRIVATE "-fobjc-arc")
+
 target_link_libraries(Zaitan
     "-framework AppKit"
     "-framework ApplicationServices"

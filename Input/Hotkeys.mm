@@ -11,8 +11,10 @@ extern std::vector<uint32_t> getAllWindowIDs();
 extern std::vector<uint32_t> getWindowIDsForPID(uint32_t pid);
 extern bool applyFrame(uint32_t windowID, WMRect frame);
 extern void closeWindow(uint32_t windowID);
-extern void launchNewInstance(uint32_t windowID,
-                              void (^onSuccess)(uint32_t originalPID, uint32_t newPID));
+extern void terminateOwner(uint32_t windowID);
+extern uint32_t ownerPID(uint32_t windowID);
+extern NSString *launchNewInstance(uint32_t windowID,
+                                   void (^onSuccess)(uint32_t newPID));
 extern void focusWindow(uint32_t windowID);
 extern void performWithFade(void (^work)(void));
 extern void performWithCover(void (^work)(void));
@@ -32,8 +34,9 @@ static Config sConfig;
 static WMRect sScreenFrame;
 static id gLaunchObserver = nil;
 static id gActivateObserver = nil;
-// PIDs currently being claimed by a split hotkey; autoAssignWindow skips them.
-static std::unordered_set<uint32_t> sSplitPendingPIDs;
+// Bundle IDs currently being claimed by a split hotkey; autoAssignWindow skips
+// them.
+static NSMutableSet<NSString *> *sSplitPendingBundleIDs;
 
 static Desktop *currentDesktop() { return sDesktops[sCurrentDesktopIndex]; }
 static uint32_t &selectedID() { return sSelectedIDs[sCurrentDesktopIndex]; }
@@ -93,33 +96,41 @@ static void applyLayoutAnimated(const std::vector<WindowPlacement> &before) {
     WMRectF target = toF(visualFrame(p.frame));
     WMRectF start = target;
     for (auto &b : before)
-      if (b.windowID == p.windowID) { start = toF(visualFrame(b.frame)); break; }
+      if (b.windowID == p.windowID) {
+        start = toF(visualFrame(b.frame));
+        break;
+      }
     cur.push_back({p.windowID, start});
     tgts.push_back(target);
   }
 
   __block std::vector<WMRectF> btgts = tgts;
   static const float kFactor = 0.5f;
-  [NSTimer scheduledTimerWithTimeInterval:1.0 / 120.0 repeats:YES
-                                    block:^(NSTimer *t) {
-    bool done = true;
-    for (size_t i = 0; i < cur.size(); i++) {
-      cur[i].second = lerpF(cur[i].second, btgts[i], kFactor);
-      applyFrame(cur[i].first, toI(cur[i].second));
-      if (!nearF(cur[i].second, btgts[i])) done = false;
-    }
-    if (done) {
-      for (size_t i = 0; i < cur.size(); i++)
-        applyFrame(cur[i].first, toI(btgts[i]));
+  [NSTimer
+      scheduledTimerWithTimeInterval:1.0 / 120.0
+                             repeats:YES
+                               block:^(NSTimer *t) {
+                                 bool done = true;
+                                 for (size_t i = 0; i < cur.size(); i++) {
+                                   cur[i].second =
+                                       lerpF(cur[i].second, btgts[i], kFactor);
+                                   applyFrame(cur[i].first, toI(cur[i].second));
+                                   if (!nearF(cur[i].second, btgts[i]))
+                                     done = false;
+                                 }
+                                 if (done) {
+                                   for (size_t i = 0; i < cur.size(); i++)
+                                     applyFrame(cur[i].first, toI(btgts[i]));
 #ifdef DEBUG
-      std::vector<WindowPlacement> applied;
-      for (size_t i = 0; i < cur.size(); i++)
-        applied.push_back({cur[i].first, toI(btgts[i])});
-      showDebugOverlay(applied, selectedID());
+                                   std::vector<WindowPlacement> applied;
+                                   for (size_t i = 0; i < cur.size(); i++)
+                                     applied.push_back(
+                                         {cur[i].first, toI(btgts[i])});
+                                   showDebugOverlay(applied, selectedID());
 #endif
-      [t invalidate];
-    }
-  }];
+                                   [t invalidate];
+                                 }
+                               }];
 }
 
 static void hideDesktopWindows(Desktop *desktop) {
@@ -413,8 +424,10 @@ static void unregisterConfigHotkeys() {
   unreg(gHotkeyMoveWinToNext);
 }
 
-static void whenWindowForPIDAppears(uint32_t pid, void (^callback)(uint32_t cgwid));
-static void watchForNewWindowInPID(uint32_t pid, void (^callback)(uint32_t cgwid));
+static void whenWindowForPIDAppears(uint32_t pid,
+                                    void (^callback)(uint32_t cgwid));
+static void watchForNewWindowInPID(uint32_t pid,
+                                   void (^callback)(uint32_t cgwid));
 
 static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
                               void *userData) {
@@ -426,7 +439,7 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
   bool needsCover = false;
   switch (hotkeyID.id) {
   case kHotkeyAssign:
-    NSLog(@"[zaitan] assign  pid=%u", focused);
+    NSLog(@"[zaitan] assign  cgwid=%u", focused);
     currentDesktop()->assignWindow(focused);
     selectedID() = focused;
     needsCover = true;
@@ -435,69 +448,83 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
     uint32_t target = selectedID() ? selectedID() : focused;
     int capturedIdx = sCurrentDesktopIndex;
     NSLog(@"[zaitan] splitH  cgwid=%u", target);
-    launchNewInstance(target, ^(uint32_t originalPID, uint32_t newPID) {
-      auto doSplit = ^(uint32_t newCGWID) {
-        sSplitPendingPIDs.erase(newPID);
-        for (int i = 0; i < NUM_DESKTOPS; i++) sDesktops[i]->removeWindow(newCGWID);
+    __block NSString *bundleID = nil;
+    bundleID = launchNewInstance(target, ^(uint32_t newPID) {
+      watchForNewWindowInPID(newPID, ^(uint32_t newCGWID) {
+        NSString *bid = bundleID;
+        if (bid)
+          [sSplitPendingBundleIDs removeObject:bid];
+        for (int i = 0; i < NUM_DESKTOPS; i++)
+          sDesktops[i]->removeWindow(newCGWID);
         applyFrame(newCGWID, {100000, 100000, 100, 100});
         Desktop *desk = sDesktops[capturedIdx];
-        if (!desk->splitHorizontally(target, newCGWID)) return;
+        if (!desk->splitHorizontally(target, newCGWID))
+          return;
         sSelectedIDs[capturedIdx] = newCGWID;
-        if (capturedIdx == sCurrentDesktopIndex) { applyLayout(); focusWindow(newCGWID); }
-      };
-      if (newPID == originalPID) {
-        // Same-process app (e.g. Kitty): watch for kAXWindowCreatedNotification on the existing PID.
-        watchForNewWindowInPID(originalPID, doSplit);
-      } else {
-        // New-process app: guard against autoAssignWindow racing to claim the window.
-        sSplitPendingPIDs.insert(newPID);
-        whenWindowForPIDAppears(newPID, doSplit);
-      }
+        if (capturedIdx == sCurrentDesktopIndex) {
+          applyLayout();
+          focusWindow(newCGWID);
+        }
+      });
     });
+    if (bundleID)
+      [sSplitPendingBundleIDs addObject:bundleID];
     break;
   }
   case kHotkeySplitV: {
     uint32_t target = selectedID() ? selectedID() : focused;
     int capturedIdx = sCurrentDesktopIndex;
-    NSLog(@"[zaitan] splitV  target=%u desktopIdx=%d", target, capturedIdx);
-    launchNewInstance(target, ^(uint32_t originalPID, uint32_t newPID) {
-      auto doSplit = ^(uint32_t newCGWID) {
-        sSplitPendingPIDs.erase(newPID);
-        for (int i = 0; i < NUM_DESKTOPS; i++) sDesktops[i]->removeWindow(newCGWID);
+    NSLog(@"[zaitan] splitV  cgwid=%u", target);
+    __block NSString *bundleID = nil;
+    bundleID = launchNewInstance(target, ^(uint32_t newPID) {
+      watchForNewWindowInPID(newPID, ^(uint32_t newCGWID) {
+        NSString *bid = bundleID;
+        if (bid)
+          [sSplitPendingBundleIDs removeObject:bid];
+        for (int i = 0; i < NUM_DESKTOPS; i++)
+          sDesktops[i]->removeWindow(newCGWID);
         applyFrame(newCGWID, {100000, 100000, 100, 100});
         Desktop *desk = sDesktops[capturedIdx];
-        NSLog(@"[zaitan] splitV doSplit: target=%u newCGWID=%u capturedIdx=%d currentIdx=%d inLayout=%d",
-              target, newCGWID, capturedIdx, sCurrentDesktopIndex,
-              (int)desk->containsWindow(target));
-        if (!desk->splitVertically(target, newCGWID)) {
-          NSLog(@"[zaitan] splitV FAILED — target not in layout or not a leaf");
+        if (!desk->splitVertically(target, newCGWID))
           return;
-        }
         sSelectedIDs[capturedIdx] = newCGWID;
-        if (capturedIdx == sCurrentDesktopIndex) { applyLayout(); focusWindow(newCGWID); }
-      };
-      if (newPID == originalPID) {
-        watchForNewWindowInPID(originalPID, doSplit);
-      } else {
-        sSplitPendingPIDs.insert(newPID);
-        whenWindowForPIDAppears(newPID, doSplit);
-      }
+        if (capturedIdx == sCurrentDesktopIndex) {
+          applyLayout();
+          focusWindow(newCGWID);
+        }
+      });
     });
+    if (bundleID)
+      [sSplitPendingBundleIDs addObject:bundleID];
     break;
   }
   case kHotkeyRemove: {
     uint32_t target = selectedID() ? selectedID() : focused;
-    NSLog(@"[zaitan] remove  pid=%u", target);
+    NSLog(@"[zaitan] remove  cgwid=%u", target);
+    uint32_t pid = ownerPID(target);
     currentDesktop()->removeWindow(target);
-    if (!currentDesktop()->assignWindow(target))
+    bool hasOtherManagedWindows = false;
+    if (pid) {
+      for (int i = 0; i < NUM_DESKTOPS && !hasOtherManagedWindows; i++) {
+        for (auto &p : sDesktops[i]->getLayout()) {
+          if (ownerPID(p.windowID) == pid) {
+            hasOtherManagedWindows = true;
+            break;
+          }
+        }
+      }
+    }
+    if (hasOtherManagedWindows)
       closeWindow(target);
+    else
+      terminateOwner(target);
     selectedID() = 0;
     needsCover = true;
     break;
   }
   case kHotkeyMoveWinL: {
     uint32_t target = selectedID() ? selectedID() : focused;
-    NSLog(@"[zaitan] move window left  pid=%u", target);
+    NSLog(@"[zaitan] move window left  cgwid=%u", target);
     auto before = currentDesktop()->getLayout();
     currentDesktop()->moveWindowHorizontally(target, HorizontalDirection::Left);
     applyLayoutAnimated(before);
@@ -505,15 +532,16 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
   }
   case kHotkeyMoveWinR: {
     uint32_t target = selectedID() ? selectedID() : focused;
-    NSLog(@"[zaitan] move window right  pid=%u", target);
+    NSLog(@"[zaitan] move window right  cgwid=%u", target);
     auto before = currentDesktop()->getLayout();
-    currentDesktop()->moveWindowHorizontally(target, HorizontalDirection::Right);
+    currentDesktop()->moveWindowHorizontally(target,
+                                             HorizontalDirection::Right);
     applyLayoutAnimated(before);
     return noErr;
   }
   case kHotkeyMoveWinU: {
     uint32_t target = selectedID() ? selectedID() : focused;
-    NSLog(@"[zaitan] move window up  pid=%u", target);
+    NSLog(@"[zaitan] move window up  cgwid=%u", target);
     auto before = currentDesktop()->getLayout();
     currentDesktop()->moveWindowVertically(target, VerticalDirection::Up);
     applyLayoutAnimated(before);
@@ -521,7 +549,7 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
   }
   case kHotkeyMoveWinD: {
     uint32_t target = selectedID() ? selectedID() : focused;
-    NSLog(@"[zaitan] move window down  pid=%u", target);
+    NSLog(@"[zaitan] move window down  cgwid=%u", target);
     auto before = currentDesktop()->getLayout();
     currentDesktop()->moveWindowVertically(target, VerticalDirection::Down);
     applyLayoutAnimated(before);
@@ -534,7 +562,7 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
       selectedID() = next;
       focusWindow(next);
     }
-    NSLog(@"[zaitan] select left  pid=%u next=>%u", selectedID(), next);
+    NSLog(@"[zaitan] select left  cgwid=%u next=>%u", selectedID(), next);
     break;
   }
   case kHotkeyMoveR: {
@@ -544,7 +572,7 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
       selectedID() = next;
       focusWindow(next);
     }
-    NSLog(@"[zaitan] select right  pid=%u", selectedID());
+    NSLog(@"[zaitan] select right  cgwid=%u", selectedID());
     break;
   }
   case kHotkeyMoveU: {
@@ -554,7 +582,7 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
       selectedID() = next;
       focusWindow(next);
     }
-    NSLog(@"[zaitan] select up  pid=%u", selectedID());
+    NSLog(@"[zaitan] select up  cgwid=%u", selectedID());
     break;
   }
   case kHotkeyMoveD: {
@@ -564,7 +592,7 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
       selectedID() = next;
       focusWindow(next);
     }
-    NSLog(@"[zaitan] select down  pid=%u", selectedID());
+    NSLog(@"[zaitan] select down  cgwid=%u", selectedID());
     break;
   }
   case kHotkeyRotate:
@@ -600,7 +628,7 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
   case kHotkeyMoveWinToPrev: {
     uint32_t target = selectedID() ? selectedID() : focused;
     int prevIdx = (sCurrentDesktopIndex + NUM_DESKTOPS - 1) % NUM_DESKTOPS;
-    NSLog(@"[zaitan] move window to desktop %d  pid=%u", prevIdx, target);
+    NSLog(@"[zaitan] move window to desktop %d  cgwid=%u", prevIdx, target);
     currentDesktop()->removeWindow(target);
     addWindowToDesktop(sDesktops[prevIdx], target);
     selectedID() = 0;
@@ -611,7 +639,7 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
   case kHotkeyMoveWinToNext: {
     uint32_t target = selectedID() ? selectedID() : focused;
     int nextIdx = (sCurrentDesktopIndex + 1) % NUM_DESKTOPS;
-    NSLog(@"[zaitan] move window to desktop %d  pid=%u", nextIdx, target);
+    NSLog(@"[zaitan] move window to desktop %d  cgwid=%u", nextIdx, target);
     currentDesktop()->removeWindow(target);
     addWindowToDesktop(sDesktops[nextIdx], target);
     selectedID() = 0;
@@ -633,11 +661,11 @@ static OSStatus HotkeyHandler(EventHandlerCallRef nextHandler, EventRef event,
 struct WindowObserverCtx {
   AXObserverRef observer;
   uint32_t pid;
-  void *callbackRef; // __bridge_retained void (^)(uint32_t cgwid)
+  void (^callback)(uint32_t cgwid);
 };
 
 static void onWindowForPID(AXObserverRef observer, AXUIElementRef element,
-                            CFStringRef notif, void *refcon) {
+                           CFStringRef notif, void *refcon) {
   auto *ctx = static_cast<WindowObserverCtx *>(refcon);
   uint32_t pid = ctx->pid;
 
@@ -648,157 +676,211 @@ static void onWindowForPID(AXObserverRef observer, AXUIElementRef element,
   if (CFEqual(notif, kAXWindowCreatedNotification)) {
     winElem = (AXUIElementRef)CFRetain(element);
   } else {
-    AXUIElementCopyAttributeValue(element, kAXMainWindowAttribute, (CFTypeRef *)&winElem);
+    AXUIElementCopyAttributeValue(element, kAXMainWindowAttribute,
+                                  (CFTypeRef *)&winElem);
   }
   if (winElem) {
     CFTypeRef wnum = nullptr;
-    if (AXUIElementCopyAttributeValue(winElem, CFSTR("AXWindowID"), &wnum) == kAXErrorSuccess && wnum) {
+    if (AXUIElementCopyAttributeValue(winElem, CFSTR("AXWindowID"), &wnum) ==
+            kAXErrorSuccess &&
+        wnum) {
       cgwid = [(__bridge NSNumber *)wnum unsignedIntValue];
       CFRelease(wnum);
     }
     CFRelease(winElem);
   }
-  if (!cgwid) return; // window ID not available yet; keep observing
+  if (!cgwid)
+    return; // window ID not available yet; keep observing
 
   // Remove both notifications to prevent re-entry.
   AXUIElementRef appElem = AXUIElementCreateApplication((pid_t)pid);
   AXObserverRemoveNotification(observer, appElem, kAXWindowCreatedNotification);
-  AXObserverRemoveNotification(observer, appElem, kAXMainWindowChangedNotification);
+  AXObserverRemoveNotification(observer, appElem,
+                               kAXMainWindowChangedNotification);
   CFRelease(appElem);
 
-  void *cbRef = ctx->callbackRef;
+  void (^cb)(uint32_t) = ctx->callback;
   dispatch_async(dispatch_get_main_queue(), ^{
-    CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer),
+    CFRunLoopRemoveSource(CFRunLoopGetMain(),
+                          AXObserverGetRunLoopSource(observer),
                           kCFRunLoopDefaultMode);
     CFRelease(observer);
     delete ctx;
-    void (^cb)(uint32_t) = (void (^)(uint32_t))cbRef;
     cb(cgwid);
-    Block_release(cbRef);
   });
 }
 
 // Watches for a NEW window from pid — one not already in any desktop layout.
-// Pre-checks CGWindowList first in case the window was created before this is called
-// (which always happens for same-process apps where the completion handler fires after
-// the window has already appeared). Falls back to kAXWindowCreatedNotification if not
-// visible yet.
-static void watchForNewWindowInPID(uint32_t pid, void (^callback)(uint32_t cgwid)) {
+// Pre-checks CGWindowList first, then tries an AX observer. If AX setup fails
+// (common for brand-new processes whose AX server isn't ready yet), falls back
+// to polling CGWindowList every 100ms for up to 10 seconds.
+static void watchForNewWindowInPID(uint32_t pid,
+                                   void (^callback)(uint32_t cgwid)) {
   // Pre-check: find a window from this PID that is not in any desktop layout.
-  // Existing windows are already assigned; the brand-new one won't be.
   auto allWindows = getWindowIDsForPID(pid);
   for (uint32_t wid : allWindows) {
     bool inLayout = false;
     for (int i = 0; i < NUM_DESKTOPS; i++) {
-      if (sDesktops[i]->containsWindow(wid)) { inLayout = true; break; }
+      if (sDesktops[i]->containsWindow(wid)) {
+        inLayout = true;
+        break;
+      }
     }
     if (!inLayout) {
-      dispatch_async(dispatch_get_main_queue(), ^{ callback(wid); });
+      dispatch_async(dispatch_get_main_queue(), ^{
+        callback(wid);
+      });
       return;
     }
   }
-  // Window not visible yet — install AX observer.
+
+  // Try AX observer (works well for already-running processes).
   auto *ctx = new WindowObserverCtx();
   ctx->pid = pid;
-  ctx->callbackRef = (void *)Block_copy(callback);
-  if (AXObserverCreate((pid_t)pid, onWindowForPID, &ctx->observer) != kAXErrorSuccess) {
-    Block_release(ctx->callbackRef);
-    delete ctx;
-    return;
+  ctx->callback = callback;
+  bool axOk = false;
+  if (AXObserverCreate((pid_t)pid, onWindowForPID, &ctx->observer) ==
+      kAXErrorSuccess) {
+    AXUIElementRef appElem = AXUIElementCreateApplication((pid_t)pid);
+    axOk = AXObserverAddNotification(ctx->observer, appElem,
+                                     kAXWindowCreatedNotification,
+                                     ctx) == kAXErrorSuccess;
+    CFRelease(appElem);
+    if (axOk)
+      CFRunLoopAddSource(CFRunLoopGetMain(),
+                         AXObserverGetRunLoopSource(ctx->observer),
+                         kCFRunLoopDefaultMode);
+    else
+      CFRelease(ctx->observer);
   }
-  AXUIElementRef appElem = AXUIElementCreateApplication((pid_t)pid);
-  bool ok = AXObserverAddNotification(ctx->observer, appElem,
-                                      kAXWindowCreatedNotification, ctx) == kAXErrorSuccess;
-  CFRelease(appElem);
-  if (!ok) {
-    CFRelease(ctx->observer);
-    Block_release(ctx->callbackRef);
-    delete ctx;
-    return;
-  }
-  CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(ctx->observer),
-                     kCFRunLoopDefaultMode);
+  if (axOk)
+    return; // onWindowForPID will clean up ctx
+
+  // AX setup failed — poll every 100ms for up to 10 seconds.
+  __block void (^pollCb)(uint32_t) = ctx->callback;
+  delete ctx;
+  __block int remaining = 100;
+  [NSTimer
+      scheduledTimerWithTimeInterval:0.1
+                             repeats:YES
+                               block:^(NSTimer *t) {
+                                 auto wins = getWindowIDsForPID(pid);
+                                 for (uint32_t wid : wins) {
+                                   bool inLayout = false;
+                                   for (int i = 0; i < NUM_DESKTOPS; i++)
+                                     if (sDesktops[i]->containsWindow(wid)) {
+                                       inLayout = true;
+                                       break;
+                                     }
+                                   if (!inLayout) {
+                                     [t invalidate];
+                                     void (^fn)(uint32_t) = pollCb;
+                                     pollCb = nil;
+                                     fn(wid);
+                                     return;
+                                   }
+                                 }
+                                 if (--remaining <= 0)
+                                   [t invalidate];
+                               }];
 }
 
-static void whenWindowForPIDAppears(uint32_t pid, void (^callback)(uint32_t cgwid)) {
+static void whenWindowForPIDAppears(uint32_t pid,
+                                    void (^callback)(uint32_t cgwid)) {
   // Pre-check: window may already be visible in CGWindowList.
   auto existing = getWindowIDsForPID(pid);
   if (!existing.empty()) {
     uint32_t cgwid = existing[0];
-    dispatch_async(dispatch_get_main_queue(), ^{ callback(cgwid); });
+    dispatch_async(dispatch_get_main_queue(), ^{
+      callback(cgwid);
+    });
     return;
   }
   // Pre-check: window may already be in the AX tree but not yet on screen.
   AXUIElementRef checkElem = AXUIElementCreateApplication((pid_t)pid);
   CFArrayRef axWins = nullptr;
-  AXUIElementCopyAttributeValue(checkElem, kAXWindowsAttribute, (CFTypeRef *)&axWins);
+  AXUIElementCopyAttributeValue(checkElem, kAXWindowsAttribute,
+                                (CFTypeRef *)&axWins);
   CFRelease(checkElem);
   if (axWins) {
     uint32_t cgwid = 0;
     for (CFIndex i = 0, n = CFArrayGetCount(axWins); i < n && !cgwid; i++) {
       AXUIElementRef w = (AXUIElementRef)CFArrayGetValueAtIndex(axWins, i);
       CFTypeRef wnum = nullptr;
-      if (AXUIElementCopyAttributeValue(w, CFSTR("AXWindowID"), &wnum) == kAXErrorSuccess && wnum) {
+      if (AXUIElementCopyAttributeValue(w, CFSTR("AXWindowID"), &wnum) ==
+              kAXErrorSuccess &&
+          wnum) {
         cgwid = [(__bridge NSNumber *)wnum unsignedIntValue];
         CFRelease(wnum);
       }
     }
     CFRelease(axWins);
     if (cgwid) {
-      dispatch_async(dispatch_get_main_queue(), ^{ callback(cgwid); });
+      dispatch_async(dispatch_get_main_queue(), ^{
+        callback(cgwid);
+      });
       return;
     }
   }
   // Fall back to AX observer for windows that haven't appeared yet.
   auto *ctx = new WindowObserverCtx();
   ctx->pid = pid;
-  ctx->callbackRef = (void *)Block_copy(callback);
-  if (AXObserverCreate((pid_t)pid, onWindowForPID, &ctx->observer) != kAXErrorSuccess) {
-    CFRelease(ctx->callbackRef);
+  ctx->callback = callback;
+  if (AXObserverCreate((pid_t)pid, onWindowForPID, &ctx->observer) !=
+      kAXErrorSuccess) {
     delete ctx;
     return;
   }
   AXUIElementRef appElem = AXUIElementCreateApplication((pid_t)pid);
   bool ok = AXObserverAddNotification(ctx->observer, appElem,
-                                      kAXWindowCreatedNotification, ctx) == kAXErrorSuccess;
+                                      kAXWindowCreatedNotification,
+                                      ctx) == kAXErrorSuccess;
   ok = AXObserverAddNotification(ctx->observer, appElem,
-                                 kAXMainWindowChangedNotification, ctx) == kAXErrorSuccess || ok;
+                                 kAXMainWindowChangedNotification,
+                                 ctx) == kAXErrorSuccess ||
+       ok;
   CFRelease(appElem);
   if (!ok) {
     CFRelease(ctx->observer);
-    CFRelease(ctx->callbackRef);
     delete ctx;
     return;
   }
-  CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(ctx->observer),
+  CFRunLoopAddSource(CFRunLoopGetMain(),
+                     AXObserverGetRunLoopSource(ctx->observer),
                      kCFRunLoopDefaultMode);
 }
 
 static void autoAssignWindow(uint32_t pid) {
-  if (sSplitPendingPIDs.count(pid)) return; // split hotkey owns this window
   bool onEmptyDesktop = sConfig.firstDesktopEmpty && sCurrentDesktopIndex == 0;
   int destIdx = onEmptyDesktop ? 1 : sCurrentDesktopIndex;
   Desktop *dest = sDesktops[destIdx];
 
   void (^doAssign)(uint32_t) = ^(uint32_t cgwid) {
     for (int i = 0; i < NUM_DESKTOPS; i++)
-      if (sDesktops[i]->containsWindow(cgwid)) return;
+      if (sDesktops[i]->containsWindow(cgwid))
+        return;
 
     applyFrame(cgwid, {100000, 100000, 100, 100});
     if (!dest->assignWindow(cgwid)) {
       auto layout = dest->getLayout();
-      if (layout.empty()) return;
-      uint32_t tgt = sSelectedIDs[destIdx] ? sSelectedIDs[destIdx] : layout.back().windowID;
+      if (layout.empty())
+        return;
+      uint32_t tgt = sSelectedIDs[destIdx] ? sSelectedIDs[destIdx]
+                                           : layout.back().windowID;
       WMRect frame = {};
       for (auto &p : layout)
-        if (p.windowID == tgt) { frame = p.frame; break; }
+        if (p.windowID == tgt) {
+          frame = p.frame;
+          break;
+        }
       if (preferredSplit(frame) == SplitDirection::Horizontal)
         dest->splitHorizontally(tgt, cgwid);
       else
         dest->splitVertically(tgt, cgwid);
     }
     sSelectedIDs[destIdx] = cgwid;
-    if (onEmptyDesktop) return;
+    if (onEmptyDesktop)
+      return;
     applyLayout();
     focusWindow(cgwid);
   };
@@ -848,7 +930,8 @@ void StartAutoAssign() {
                    queue:[NSOperationQueue mainQueue]
               usingBlock:^(NSNotification *note) {
                 uint32_t cgwid = getFrontmostWindowID();
-                if (!cgwid) return;
+                if (!cgwid)
+                  return;
                 for (auto &p : currentDesktop()->getLayout()) {
                   if (p.windowID == cgwid) {
                     selectedID() = cgwid;
@@ -880,6 +963,11 @@ void StartAutoAssign() {
                 if (app.activationPolicy !=
                     NSApplicationActivationPolicyRegular)
                   return;
+                NSString *bid = app.bundleIdentifier;
+                if (bid && [sSplitPendingBundleIDs containsObject:bid]) {
+                  [sSplitPendingBundleIDs removeObject:bid];
+                  return; // split hotkey owns this launch
+                }
                 autoAssignWindow((uint32_t)app.processIdentifier);
               }];
 }
@@ -887,6 +975,7 @@ void StartAutoAssign() {
 void RegisterHotkeys(WMRect screenFrame, Config config) {
   sConfig = config;
   sScreenFrame = screenFrame;
+  sSplitPendingBundleIDs = [[NSMutableSet alloc] init];
 
   for (int i = 0; i < NUM_DESKTOPS; i++)
     sDesktops[i] = new Desktop(screenFrame);
